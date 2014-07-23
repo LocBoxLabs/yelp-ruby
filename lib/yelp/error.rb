@@ -25,7 +25,13 @@ module Yelp
       def error_from_response(response)
         body = JSON.parse(response.body)
         klass = error_classes[body['error']['id']]
-        klass.new(body['error']['text'])
+        message = body['error'].map { |k, v| "#{k}: #{v}" }.join(', ') +
+          "\nurl: #{response.env[:url].to_s}"
+        ex = klass.new(message)
+        ex.response = response
+        ex.error = body['error']
+        ex.url = response.env[:url].to_s
+        ex
       end
 
       # Maps from API Error id's to Yelp::Error exception classes.
@@ -45,7 +51,9 @@ module Yelp
       @response_validator.validate(response)
     end
 
-    class Base < StandardError; end
+    class Base < StandardError
+      attr_accessor :response, :error, :url
+    end
 
     class AlreadyConfigured < Base
       def initialize(msg = 'Gem cannot be reconfigured.  Initialize a new ' +
